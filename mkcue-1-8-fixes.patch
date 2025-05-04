@@ -1,0 +1,86 @@
+diff -urN mkcue-1.orig/diskid.cc mkcue-1.orig-fixes/diskid.cc
+--- mkcue-1.orig/diskid.cc	2004-10-23 03:19:22.000000000 +0100
++++ mkcue-1.orig-fixes/diskid.cc	2025-05-03 20:36:21.928182396 +0100
+@@ -46,7 +46,7 @@
+ {
+ }
+ 
+-void DiskId::ReportError(char *err)
++void DiskId::ReportError(const char *err)
+ {
+    m_errorMsg = string(err);
+ }
+diff -urN mkcue-1.orig/diskid.h mkcue-1.orig-fixes/diskid.h
+--- mkcue-1.orig/diskid.h	2004-10-23 03:19:22.000000000 +0100
++++ mkcue-1.orig-fixes/diskid.h	2025-05-03 20:35:19.799509064 +0100
+@@ -28,8 +28,6 @@
+ 
+ #include <string>
+ 
+-using namespace std;
+-
+ //
+ //  platform specific stuff
+ //
+@@ -83,7 +81,7 @@
+ 
+ //                 DiskId(void);
+ 
+-        void  ReportError(char *err);
++        void  ReportError(const char *err);
+ 
+         // This function is OS dependent, and will be implemented by
+         // one of the modules in the osdep dir.
+diff -urN mkcue-1.orig/GNUmakefile.in mkcue-1.orig-fixes/GNUmakefile.in
+--- mkcue-1.orig/GNUmakefile.in	2004-10-27 07:38:57.000000000 +0100
++++ mkcue-1.orig-fixes/GNUmakefile.in	2025-05-03 20:35:14.391427642 +0100
+@@ -54,7 +54,7 @@
+ all: mkcue
+ 
+ mkcue: mkcue.o mb.o
+-	${CXX} -o $@ mkcue.o mb.o
++	${CXX} -o $@ mkcue.o mb.o ${LDFLAGS}
+ 
+ clean:
+ 	rm -f mkcue *.o
+diff -urN mkcue-1.orig/mkcue.cc mkcue-1.orig-fixes/mkcue.cc
+--- mkcue-1.orig/mkcue.cc	2004-10-27 07:20:30.000000000 +0100
++++ mkcue-1.orig-fixes/mkcue.cc	2025-05-03 20:42:20.428107780 +0100
+@@ -12,8 +12,11 @@
+ 
+ #include "diskid.h"
+ 
++/* http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=439790 */
++#define MSF_OFFSET 150
++
+ void
+-DiskId::ReportError(char *err)
++DiskId::ReportError(const char *err)
+ {
+     fprintf(stderr, "%s\n", err);
+     exit(2);
+@@ -58,12 +61,10 @@
+     puts("    INDEX 01 00:00:00");
+ 
+ #define min(x, y) ((x) < (y) ? (x) : (y))
+-    for (track = cdinfo.FirstTrack + 1;
++    for (track = cdinfo.FirstTrack;
+          track <= min(trackcount, cdinfo.LastTrack);
+          track++) {
+-        /* There is frequently (always?) an offset of 150 sectors, so
+-         * subtract the first track's offset. */
+-        cdinfo.FrameOffset[track] -= cdinfo.FrameOffset[1];
++        cdinfo.FrameOffset[track] -= MSF_OFFSET;
+ 
+         minutes = seconds = sectors = 0;
+         sectors = cdinfo.FrameOffset[track] % 75;
+@@ -76,6 +77,9 @@
+         }
+ 
+         printf("  TRACK %02d AUDIO\n", track);
++        if (track == 1 && cdinfo.FrameOffset[track] > 0) {
++            printf("    INDEX 00 00:00:00\n");
++        }
+         printf("    INDEX 01 %02d:%02d:%02d\n", minutes, seconds, sectors);
+     }
+ 
