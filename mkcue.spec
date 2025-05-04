@@ -38,7 +38,11 @@ using the FLAC codec and the single track option.
 
 %build
 export DESTDIR=%{buildroot}%{_bindir}
+%ifarch aarch64
+./configure --prefix=/usr --build=aarch64-unknown-linux-gnu
+%else
 ./configure --prefix=/usr
+%endif
 %make_build all
 
 %install
